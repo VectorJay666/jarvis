@@ -1,0 +1,15 @@
+{
+  "sleep_hours": 5.2,
+  "steps": 1840,
+  "active_kcal": 96,
+  "training_done": false,
+  "meals_today": 1,
+  "free_minutes": 40,
+  "budget_left": 300,
+  "fridge": [
+    "egg",
+    "rice"
+  ],
+  "source": "mock",
+  "updated_at": "2026-10-11T17:53:32.279Z"
+}

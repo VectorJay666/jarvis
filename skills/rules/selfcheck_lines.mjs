@@ -1,0 +1,11 @@
+import assert from "node:assert";
+import { wantLine, sayLine, revisedLine } from "./lines.mjs";
+const st = { sleep_hours: 5, free_minutes: 40 };
+const w = wantLine("fitness", st);
+assert.equal(w.short, "40分钟训练｜你说想练");
+assert.equal(wantLine("diet", st), null);
+const rev = revisedLine("fitness", "做 15 分钟低冲击：徒手深蹲", st);
+assert.equal(rev, "改成15分低冲击｜睡5小时");
+assert.ok(sayLine("recovery", "23:00 前进房休息", st).includes("睡眠债"));
+assert.ok(sayLine("ledger", "x", { budget_left: 120 }).includes("120"));
+console.log("lines selfcheck OK", { want: w.short, revised: rev });

@@ -1,0 +1,4 @@
+.env
+habit.json
+roles.json
+*.log

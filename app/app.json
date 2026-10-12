@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "随身助手",
+    "slug": "jarvis-secretary",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F2F2F7"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.jarvis.secretary",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "换头头形象时需要访问相册"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F2F2F7",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.jarvis.secretary"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "换头头形象时需要访问相册",
+          "cameraPermission": false
+        }
+      ]
+    ]
+  }
+}

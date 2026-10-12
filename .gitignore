@@ -1,0 +1,48 @@
+# dependencies
+node_modules/
+app/node_modules/
+
+# Expo / build
+app/.expo/
+app/dist/
+app/web-build/
+.expo/
+dist/
+web-build/
+
+# secrets & local runtime
+.env
+.env.*
+!.env.example
+server/.env
+server/habit.json
+server/roles.json
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.mobileprovision
+
+# logs / OS
+*.log
+.DS_Store
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# large / review-only artifacts (promo videos, raw captures)
+review-artifacts/
+demo/*.mp4
+*.mp4
+puppeteer-core-*.tgz
+*.tgz
+
+# typescript
+*.tsbuildinfo
+expo-env.d.ts
+
+# native generated
+app/ios/
+app/android/
+.kotlin/
