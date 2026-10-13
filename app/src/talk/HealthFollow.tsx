@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -22,9 +23,10 @@ type Props = {
   reduceMotion?: boolean;
   onSnapshot: (s: HealthSnapshot) => void;
   onClose: () => void;
+  onOpenRecovery?: () => void;
 };
 
-export function HealthFollowPanel({ visible, follow, snapshot, reduceMotion, onSnapshot, onClose }: Props) {
+export function HealthFollowPanel({ visible, follow, snapshot, reduceMotion, onSnapshot, onClose, onOpenRecovery }: Props) {
   const { height } = useWindowDimensions();
   const sheetH = Math.min(height * 0.78, 640);
   const y = useRef(new Animated.Value(sheetH)).current;
@@ -47,22 +49,10 @@ export function HealthFollowPanel({ visible, follow, snapshot, reduceMotion, onS
     });
   };
 
-  const connectHealth = async () => {
+  const connectHealth = () => {
     hap.light();
-    if (!hk) { setManualOpen(true); return; }
-    const next = await persistAndMaybePost({
-      ...snapshot,
-      source: 'healthkit',
-      sleep_hours: snapshot.sleep_hours ?? 5.2,
-      steps: snapshot.steps ?? 1840,
-      active_kcal: snapshot.active_kcal ?? 96,
-      training_done: snapshot.training_done ?? false,
-      meals_today: snapshot.meals_today ?? 1,
-      fridge: snapshot.fridge ?? ['egg', 'rice'],
-      free_minutes: snapshot.free_minutes ?? 40,
-      budget_left: snapshot.budget_left ?? 300,
-    });
-    onSnapshot(next);
+    // No native HealthKit bridge exists yet. Never relabel demo samples as HealthKit.
+    setManualOpen(true);
   };
 
   return (
@@ -74,10 +64,10 @@ export function HealthFollowPanel({ visible, follow, snapshot, reduceMotion, onS
           <View style={st.inner}>
             <View style={st.grab} />
             <View style={st.topRow}>
-              <Text style={st.title}>跟进 · 健康</Text>
+              <Text style={st.title}>健康详情</Text>
               <Tap feedback="selection" onPress={close} hitSlop={12} pressOpacity={0.5} pressScale={1}><Text style={st.close}>收起</Text></Tap>
             </View>
-            <Text style={st.plan}>{follow.plan || '会后按睡眠/完成情况自动改下一版'}</Text>
+            <Text style={st.plan}>{follow.plan || (snapshot.source === 'mock' ? '演示健康数据 · 尚未连接 Apple 健康' : '当前可用记录 · 根据你的反馈调整建议')}</Text>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }}>
               <View style={st.inset} testID="health-blocks">
@@ -114,12 +104,20 @@ export function HealthFollowPanel({ visible, follow, snapshot, reduceMotion, onS
                   })}
                 </View>
               ) : (
-                <Text style={[st.update, { marginTop: 14 }]}>暂无改版，头头继续盯着。</Text>
+                <Text style={[st.update, { marginTop: 14 }]}>在睡眠模式里，结合你的感受与日程一起调整。</Text>
               )}
 
+              {onOpenRecovery ? <View style={{ marginTop: 22 }}>
+                <Text style={st.section}>睡眠</Text>
+                <Tap testID="health-sleep-skill" onPress={onOpenRecovery} style={{ flexDirection: 'row', alignItems: 'center', padding: 18, borderRadius: 18, backgroundColor: '#FFFFFF', marginTop: 6, gap: 14 }}>
+                  <View style={{ width: 44, height: 44, backgroundColor: '#F2F2F7', borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="moon-outline" size={23} color="#1D1D1F" /></View>
+                  <View style={{ flex: 1 }}><Text style={{ fontSize: 16, fontWeight: '600', color: '#1D1D1F' }}>睡眠与恢复</Text><Text style={{ fontSize: 12, color: '#8E8E93', lineHeight: 19, marginTop: 4 }}>陪我调整 · 从今天的感受，聊到今晚的安排</Text></View>
+                  <Ionicons name="chevron-forward" size={16} color="#8E8E93" />
+                </Tap>
+              </View> : null}
               <Tap testID="btn-healthkit" feedback={false} onPress={connectHealth} style={st.hkBtn}>
-                <Text style={st.hkTitle}>{hk ? '连接 Apple 健康' : 'Apple 健康（此平台不可用）'}</Text>
-                <Text style={st.hkSub}>{hk ? '授权后同步睡眠与活动' : 'Web 不可用 · 可手动填写'}</Text>
+                <Text style={st.hkTitle}>Apple 健康 · 尚未接入</Text>
+                <Text style={st.hkSub}>当前可手动填写，不会模拟授权或同步</Text>
               </Tap>
               {!hk ? (
                 <Tap testID="btn-manual-health" feedback="selection" onPress={() => setManualOpen(true)} style={st.manualLink}>
@@ -147,12 +145,9 @@ export function HealthFollowPanel({ visible, follow, snapshot, reduceMotion, onS
         onClose={() => setManualOpen(false)}
         onSave={async (partial) => {
           const next = await persistAndMaybePost({
-            ...snapshot,
+            ...(snapshot.source === 'mock' ? {} : snapshot),
             ...partial,
             source: 'manual',
-            fridge: snapshot.fridge ?? ['egg', 'rice'],
-            free_minutes: snapshot.free_minutes ?? 40,
-            budget_left: snapshot.budget_left ?? 300,
           });
           onSnapshot(next);
           setManualOpen(false);
@@ -171,14 +166,14 @@ function ManualSheet({ visible, snapshot, onClose, onSave }: {
   const [sleep, setSleep] = useState(String(snapshot.sleep_hours ?? ''));
   const [steps, setSteps] = useState(String(snapshot.steps ?? ''));
   const [meals, setMeals] = useState(String(snapshot.meals_today ?? ''));
-  const [done, setDone] = useState(!!snapshot.training_done);
+  const [done, setDone] = useState<boolean | undefined>(snapshot.source === 'mock' ? undefined : snapshot.training_done);
 
   useEffect(() => {
     if (!visible) return;
-    setSleep(String(snapshot.sleep_hours ?? ''));
-    setSteps(String(snapshot.steps ?? ''));
-    setMeals(String(snapshot.meals_today ?? ''));
-    setDone(!!snapshot.training_done);
+    setSleep(snapshot.source === 'mock' ? '' : String(snapshot.sleep_hours ?? ''));
+    setSteps(snapshot.source === 'mock' ? '' : String(snapshot.steps ?? ''));
+    setMeals(snapshot.source === 'mock' ? '' : String(snapshot.meals_today ?? ''));
+    setDone(snapshot.source === 'mock' ? undefined : snapshot.training_done);
   }, [visible, snapshot]);
 
   return (
@@ -191,16 +186,16 @@ function ManualSheet({ visible, snapshot, onClose, onSave }: {
           <Field label="今日餐次" value={meals} onChange={setMeals} />
           <Tap feedback="selection" onPress={() => setDone((d) => !d)} style={st.toggle}>
             <Text style={st.rowConcl}>训练已完成</Text>
-            <Text style={st.cardBtnText}>{done ? '是' : '否'}</Text>
+            <Text style={st.cardBtnText}>{done === undefined ? '未填写' : done ? '是' : '否'}</Text>
           </Tap>
           <Tap
             testID="btn-save-manual"
             feedback="success"
             style={st.cardBtn}
             onPress={() => onSave({
-              sleep_hours: Number(sleep) || undefined,
-              steps: Number(steps) || undefined,
-              meals_today: Number(meals) || undefined,
+              sleep_hours: manualNumber(sleep),
+              steps: manualNumber(steps),
+              meals_today: manualNumber(meals),
               training_done: done,
             })}
           >
@@ -210,6 +205,12 @@ function ManualSheet({ visible, snapshot, onClose, onSave }: {
       </Tap>
     </Modal>
   );
+}
+
+function manualNumber(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const result = Number(value);
+  return Number.isFinite(result) && result >= 0 ? result : undefined;
 }
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {

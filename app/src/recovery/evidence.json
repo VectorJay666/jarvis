@@ -1,0 +1,29 @@
+[
+  {
+    "id": "sleep-duration",
+    "title": "Recommended Amount of Sleep for a Healthy Adult: A Joint Consensus Statement of the American Academy of Sleep Medicine and Sleep Research Society",
+    "year": 2015,
+    "type": "AASM / SRS 专家共识",
+    "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4434546/",
+    "scope": "普通成人睡眠时长的一般性参考，不验证本应用的具体计划或恢复效果。",
+    "review": "通过 Europe PMC 核对题名、年份与摘要；未逐条全文复核"
+  },
+  {
+    "id": "caffeine",
+    "title": "Caffeine Effects on Sleep Taken 0, 3, or 6 Hours before Going to Bed",
+    "year": 2013,
+    "type": "随机对照研究",
+    "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3805807/",
+    "scope": "研究剂量为 400 mg；不能直接套用到所有饮品、剂量及特殊人群。",
+    "review": "通过 Europe PMC 核对题名、年份与摘要；未逐条全文复核"
+  },
+  {
+    "id": "sleep-loss",
+    "title": "Effects of Acute Sleep Loss on Physical Performance: A Systematic and Meta-Analytical Review",
+    "year": 2022,
+    "type": "系统综述与荟萃分析",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/35708888/",
+    "scope": "睡眠不足与身体表现的群体研究，不能据此用单次指标确定个人禁练阈值。",
+    "review": "通过 Europe PMC 核对题名、年份与摘要；未逐条全文复核"
+  }
+]

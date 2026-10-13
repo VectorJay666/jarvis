@@ -1,16 +1,19 @@
+import { BlurTargetView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, ScrollView, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   confirmRole, deleteRule, fetchCompare, fetchCouncil, fetchRoles, fetchRules, postFeedback, previewRole,
   RejectError, type Sourced,
 } from './src/api/council';
+import { tabBarInset, useTabIndicator } from './src/components/TabBar';
 import { NavBar, PrimaryButton, TabBar, type TabKey } from './src/components/ui';
 import { Habits, HireFlow, HireFooter, Me, RoleDetail, Team } from './src/screens/Others';
 import { Today } from './src/screens/Today';
 import { AgentScreen } from './src/agent/AgentScreen';
+import { ScreenArrival } from './src/components/ScreenArrival';
 import { colors, space } from './src/theme/tokens';
 import {
   DEMO_DEFAULTS, type CompareResult, type CouncilStatus, type HabitRule, type HandoffCardData, type Role, type RolePreview,
@@ -21,6 +24,9 @@ type Route = { name: 'detail'; roleId: string; from: TabKey } | { name: 'hire'; 
 function DemoScene() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<TabKey>('talk');
+  const indicator = useTabIndicator(tab);
+  const blurTarget = useRef<View>(null);
+  const navigationInset = tabBarInset(insets.bottom);
   const [route, setRoute] = useState<Route>(null);
   const [status, setStatus] = useState<CouncilStatus>({ ...DEMO_DEFAULTS });
   const [roles, setRoles] = useState<Role[]>([]);
@@ -110,6 +116,10 @@ function DemoScene() {
     return r ? { role: r.role, text: r.text } : null;
   }, [card, rules]);
 
+  const navigate = useCallback((next: TabKey) => { Keyboard.dismiss(); setTab(next); setFeedbackRole(null); }, []);
+  const talkVisible = !route && tab === 'talk';
+  const todayVisible = !route && tab === 'today';
+
   const hireProps = { step: hireStep, setStep: setHireStep, need, setNeed, preview, error: hireErr, busy, onPreview, onConfirm };
 
   let body: React.ReactNode; let footer: React.ReactNode = null;
@@ -118,31 +128,40 @@ function DemoScene() {
   } else if (route?.name === 'hire') {
     body = <HireFlow {...hireProps} />; footer = <HireFooter {...hireProps} />;
   } else if (tab === 'today') {
-    body = <Today status={status} onChange={onStatusChange} hasBudget={hasBudget} card={card} labels={labels} learned={learned} onOpenRole={onOpenRole}
-      feedbackRole={feedbackRole} setFeedbackRole={setFeedbackRole} onFeedback={onFeedback} busy={busy} fallbackErr={fallbackErr} />;
+    body = null;
     footer = <PrimaryButton testID="btn-council" label="让秘书团会商" loading={loading} onPress={onCouncil} />;
   } else if (tab === 'team') body = <Team roles={roles} newIds={newIds} onOpen={onOpenRole} onHire={openHire} />;
   else if (tab === 'habits') body = <Habits rules={rules} roles={roles} onOpen={onOpenRole} />;
   else body = <Me />;
 
-  const backLabel = route ? ({ talk: '说话', today: '今日', team: '跟进', habits: '习惯', me: '我的' } as const)[route.from] : '';
+  const backLabel = route ? ({ talk: '开始', today: '今日', team: '跟进', habits: '习惯', me: '我的' } as const)[route.from] : '';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']} testID="demo-scene">
       <StatusBar style="dark" />
       <View style={styles.col}>
         {route ? <NavBar title={route.name === 'hire' ? '' : '秘书详情'} backLabel={backLabel} onBack={() => setRoute(null)} /> : null}
-        {/* Talk 常挂载：切走「说话」不卸载，配合 talkStore 不丢会话、不掐进行中请求 */}
-        <View style={{ flex: 1, display: !route && tab === 'talk' ? 'flex' : 'none' }} pointerEvents={!route && tab === 'talk' ? 'auto' : 'none'}>
-          <AgentScreen onOpenDetail={() => setTab('today')} />
-        </View>
-        {!(!route && tab === 'talk') ? (
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scroll, footer ? { paddingBottom: 140 + insets.bottom } : null]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {body}
-          </ScrollView>
-        ) : null}
-        {footer ? <View style={[styles.cta, route && { paddingBottom: Math.max(insets.bottom, space.sm) }]}>{footer}</View> : null}
-        {route ? null : <TabBar value={tab} onChange={(k) => { setTab(k); setFeedbackRole(null); }} bottom={insets.bottom} />}
+        <BlurTargetView ref={blurTarget} style={{ flex: 1 }}>
+          {/* Preserve both screens and their scroll state; hiding Talk also pauses its motion. */}
+          <ScreenArrival active={talkVisible}>
+            <AgentScreen visible={talkVisible} activeTab="talk" tabIndicator={indicator} onNavigate={navigate} />
+          </ScreenArrival>
+          <ScreenArrival active={todayVisible}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scroll, { paddingBottom: navigationInset + 90 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} testID="today-scroll">
+              <Today status={status} onChange={onStatusChange} hasBudget={hasBudget} card={card} labels={labels} learned={learned} onOpenRole={onOpenRole}
+                feedbackRole={feedbackRole} setFeedbackRole={setFeedbackRole} onFeedback={onFeedback} busy={busy} fallbackErr={fallbackErr} />
+            </ScrollView>
+          </ScreenArrival>
+          {!talkVisible && !todayVisible ? (
+            <ScreenArrival key={route ? `${route.name}-${route.name === 'detail' ? route.roleId : ''}` : tab} active>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scroll, { paddingBottom: (route ? insets.bottom : navigationInset) + (footer ? 90 : space.xl) }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              {body}
+            </ScrollView>
+            </ScreenArrival>
+          ) : null}
+        </BlurTargetView>
+        {footer ? <View style={[styles.cta, { bottom: route ? 0 : navigationInset, paddingBottom: route ? Math.max(insets.bottom, space.sm) : space.sm }]}>{footer}</View> : null}
+        <View style={[StyleSheet.absoluteFill, { display: !route && tab !== 'talk' ? 'flex' : 'none' }]} pointerEvents="box-none"><TabBar active={!route && tab !== 'talk'} indicator={indicator} blurTarget={blurTarget} value={tab} onChange={navigate} bottom={insets.bottom} /></View>
       </View>
     </SafeAreaView>
   );
@@ -160,5 +179,5 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   col: { flex: 1, maxWidth: 430, width: '100%', alignSelf: 'center' },
   scroll: { paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.xl },
-  cta: { paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.sm, backgroundColor: colors.bg },
+  cta: { position: 'absolute', left: 0, right: 0, paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.sm, backgroundColor: colors.bg },
 });

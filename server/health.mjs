@@ -34,6 +34,18 @@ export function normalizeSnapshot(body = {}) {
   if (Array.isArray(body.fridge) && body.fridge.length) {
     out.fridge = body.fridge.map((x) => String(x).toLowerCase());
   }
+  for (const key of ['hrv_ms', 'resting_hr', 'awake_count', 'respiratory_rate', 'spo2_percent', 'wrist_temperature_c']) {
+    const value = num(body[key]); if (value !== undefined) out[key] = value;
+  }
+  for (const key of ['sleep_start', 'sleep_end', 'hrv_method']) {
+    if (typeof body[key] === 'string') out[key] = body[key].slice(0, 80);
+  }
+  for (const key of ['sleep_stages', 'recent_workouts']) {
+    if (Array.isArray(body[key])) out[key] = body[key].slice(0, 200);
+  }
+  for (const key of ['metric_quality', 'personal_baseline']) {
+    if (body[key] && typeof body[key] === 'object' && !Array.isArray(body[key])) out[key] = body[key];
+  }
   if (body.source) out.source = String(body.source).slice(0, 32);
   out.updated_at = new Date().toISOString();
   return out;
@@ -47,9 +59,13 @@ export function loadSnapshot() {
   }
 }
 
+export function mergeSnapshots(prev, body) {
+  // Source changes and full client snapshots must not carry old demo values forward.
+  const sameSource = body.source && body.source === prev.source && body.replace !== true;
+  return { ...(sameSource ? prev : {}), ...normalizeSnapshot(body) };
+}
 export function saveSnapshot(body) {
-  const prev = loadSnapshot() || {};
-  const next = { ...prev, ...normalizeSnapshot(body) };
+  const next = mergeSnapshots(loadSnapshot() || {}, body);
   fs.writeFileSync(PATH, JSON.stringify(next, null, 2));
   return next;
 }

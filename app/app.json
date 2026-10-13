@@ -6,16 +6,15 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F2F2F7"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.jarvis.secretary",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "换头头形象时需要访问相册"
+        "NSPhotoLibraryUsageDescription": "换头头形象时需要访问相册",
+        "NSLocalNetworkUsageDescription": "连接同一网络中的电脑，获取对话回复和测试服务。",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
@@ -34,13 +33,29 @@
     },
     "plugins": [
       "expo-asset",
+      ["expo-audio", { "microphonePermission": "录制你的语音，供你试听或稍后使用。", "enableBackgroundPlayback": false }],
       [
         "expo-image-picker",
         {
           "photosPermission": "换头头形象时需要访问相册",
           "cameraPermission": false
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F2F2F7"
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c7cbb201-01a3-4f0a-91a9-bb72a80310ca"
+      }
+    },
+    "owner": "vector6"
   }
 }

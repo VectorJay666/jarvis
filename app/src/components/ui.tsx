@@ -88,30 +88,7 @@ export function NavBar({ title, onBack, backLabel = '返回' }: { title: string;
   );
 }
 
-export type TabKey = 'talk' | 'today' | 'team' | 'habits' | 'me';
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: 'talk', label: '说话', icon: 'mic' },
-  { key: 'today', label: '今日', icon: 'today' },
-  { key: 'team', label: '跟进', icon: 'people' },
-  { key: 'habits', label: '习惯', icon: 'bulb' },
-  { key: 'me', label: '我的', icon: 'person' },
-];
-
-export function TabBar({ value, onChange, bottom }: { value: TabKey; onChange: (k: TabKey) => void; bottom: number }) {
-  return (
-    <View style={[g.tabbar, { paddingBottom: Math.max(bottom, 6) }]}>
-      {TABS.map((t) => {
-        const on = t.key === value;
-        return (
-          <Pressable key={t.key} onPress={() => onChange(t.key)} style={g.tab} testID={`tab-${t.key}`} accessibilityRole="tab" accessibilityState={{ selected: on }}>
-            <Ionicons name={(on ? t.icon : `${t.icon}-outline`) as never} size={23} color={on ? colors.text : colors.text3} />
-            <Text style={[g.tabText, { color: on ? colors.text : colors.text3 }]}>{t.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
+export { TabBar, type TabKey } from './TabBar';
 
 export const g = StyleSheet.create({
   card: { backgroundColor: colors.bg, borderRadius: radius.card, borderWidth: 0.5, borderColor: colors.hairline, overflow: 'hidden' },
@@ -128,7 +105,4 @@ export const g = StyleSheet.create({
   sub: { ...type.body, fontSize: 13, lineHeight: 18, color: colors.text2 },
   input: { ...type.body, paddingVertical: 10, paddingHorizontal: 12, borderRadius: radius.ctl, backgroundColor: colors.surface },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44, paddingHorizontal: 8 },
-  tabbar: { flexDirection: 'row', borderTopWidth: 0.5, borderTopColor: colors.hairline, backgroundColor: colors.bg, paddingTop: 6 },
-  tab: { flex: 1, alignItems: 'center', gap: 2 },
-  tabText: { fontSize: 10, fontWeight: '500' },
 });

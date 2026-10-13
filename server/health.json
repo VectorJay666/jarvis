@@ -10,6 +10,8 @@
     "egg",
     "rice"
   ],
+  "hrv_ms": 41,
+  "resting_hr": 61,
   "source": "mock",
-  "updated_at": "2026-10-11T17:53:32.279Z"
+  "updated_at": "2026-10-13T02:40:57.998Z"
 }

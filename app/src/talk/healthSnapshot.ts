@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 import { API_BASE } from '../config';
 
 /** Backend-aligned health vertical snapshot (v0.2.2) */
@@ -16,6 +15,17 @@ export type HealthSnapshot = {
   resting_hr?: number;
   source?: 'mock' | 'manual' | 'healthkit' | 'cache' | string;
   updated_at?: number | string;
+  sleep_start?: string;
+  sleep_end?: string;
+  awake_count?: number;
+  respiratory_rate?: number;
+  spo2_percent?: number;
+  wrist_temperature_c?: number;
+  hrv_method?: 'SDNN' | 'RMSSD' | 'unknown';
+  sleep_stages?: unknown[];
+  recent_workouts?: unknown[];
+  metric_quality?: Record<string, unknown>;
+  personal_baseline?: Record<string, unknown>;
 };
 
 const KEY = 'health_snapshot_v1';
@@ -38,7 +48,8 @@ export const MOCK_SNAPSHOT: HealthSnapshot = {
 
 function mergeSnap(base: HealthSnapshot, extra?: Partial<HealthSnapshot> | null): HealthSnapshot {
   if (!extra) return { ...base };
-  return { ...base, ...extra };
+  // Never fill missing real measurements from the demo seed.
+  return extra.source === 'mock' ? { ...base, ...extra } : { ...extra };
 }
 
 export async function loadHealthSnapshot(): Promise<HealthSnapshot> {
@@ -54,7 +65,7 @@ export async function loadHealthSnapshot(): Promise<HealthSnapshot> {
       if (res.ok) {
         const body = await res.json() as { snapshot?: HealthSnapshot; ok?: boolean };
         if (body?.snapshot) {
-          const merged = mergeSnap(MOCK_SNAPSHOT, { ...local, ...body.snapshot, source: body.snapshot.source ?? 'cache' });
+          const merged = mergeSnap(MOCK_SNAPSHOT, { ...body.snapshot, source: body.snapshot.source ?? 'cache' });
           try { await AsyncStorage.setItem(KEY, JSON.stringify(merged)); } catch { /* ignore */ }
           return merged;
         }
@@ -79,7 +90,7 @@ export async function postHealthSnapshot(snap: HealthSnapshot): Promise<boolean>
     const res = await fetch(`${API_BASE}/v1/health/snapshot`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(snap),
+      body: JSON.stringify({ ...snap, replace: true }),
     });
     return res.ok;
   } catch {
@@ -113,7 +124,7 @@ export function blocksFromSnapshot(st: HealthSnapshot): HealthBlock[] {
 
   const sleepConcl = !Number.isFinite(sleep)
     ? '还没读到睡眠，回头再问你'
-    : sleep < 6 ? '睡不够，今晚别硬扛' : sleep >= 7 ? '睡眠够用' : '睡眠一般，留意恢复';
+    : st.source === 'mock' ? '演示睡眠记录' : '结合个人历史与感受看这晚睡眠';
 
   const useSteps = Number.isFinite(steps);
   const actVal = useSteps ? String(Math.floor(steps)) : (Number.isFinite(kcal) ? String(Math.floor(kcal)) : '—');
@@ -132,7 +143,7 @@ export function blocksFromSnapshot(st: HealthSnapshot): HealthBlock[] {
       value: Number.isFinite(sleep) ? (Math.round(sleep * 10) / 10).toString() : '—',
       unit: '小时',
       detail: Number.isFinite(sleep)
-        ? `昨晚约 ${sleep} 小时。低于 6 小时会触发训练下调；有 sleep_hours 时 talk 不再追问睡眠。`
+        ? `昨晚约 ${sleep} 小时。这条记录不能单独决定训练强度，需要结合个人历史与当前感受。`
         : '连接 Apple 健康或手动填写后，这里会显示睡眠结论。',
     },
     {
@@ -142,7 +153,7 @@ export function blocksFromSnapshot(st: HealthSnapshot): HealthBlock[] {
       value: actVal,
       unit: actUnit,
       detail: useSteps
-        ? `今日步数 ${Math.floor(steps)}。低于 3000 时建议加 10 分钟散步，不加压力量。`
+        ? `今日步数 ${Math.floor(steps)}。是否增加活动还需要结合当前感受与日程。`
         : Number.isFinite(kcal)
           ? `今日活动约 ${Math.floor(kcal)} kcal。`
           : '可同步步数或活动热量。',
@@ -153,7 +164,7 @@ export function blocksFromSnapshot(st: HealthSnapshot): HealthBlock[] {
       conclusion: done ? '今日训练已完成' : '今天还没练',
       value: done ? '1' : '0',
       unit: '次',
-      detail: done ? '今天的训练已勾选完成。睡够时可回到常规力量。' : '还没完成今日训练。头头会按睡眠决定强度。',
+      detail: done ? '今天的训练已勾选完成。睡够时可回到常规力量。' : '还没完成今日训练。可以和助手结合当前感受讨论强度。',
     },
     {
       id: 'meals',
@@ -183,5 +194,6 @@ export function talkStateFromSnapshot(snap: HealthSnapshot): Record<string, unkn
 }
 
 export function healthKitAvailable(): boolean {
-  return Platform.OS === 'ios';
+  // A native bridge has not been implemented on any platform.
+  return false;
 }

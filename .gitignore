@@ -46,3 +46,5 @@ expo-env.d.ts
 app/ios/
 app/android/
 .kotlin/
+
+server/home_habit.json

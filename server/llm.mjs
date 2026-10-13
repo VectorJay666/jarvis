@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readSSE } from "./stream.mjs";
 import { assertFacts } from "../skills/rules/assert_facts.mjs";
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -45,10 +46,10 @@ export function llmStatus() {
 }
 
 /**
- * @param {{ system?: string, user: string, json?: boolean, timeoutMs?: number }} opts
+ * @param {{ system?: string, user: string, json?: boolean, timeoutMs?: number, requireFinal?: boolean, signal?: AbortSignal, onDelta?: (text: string) => void }} opts
  * @returns {Promise<string|object|null>} null on missing key / failure
  */
-export async function chat({ system, user, json = false, timeoutMs = 12000 } = {}) {
+export async function chat({ system, user, json = false, timeoutMs = 12000, requireFinal = false, signal, onDelta } = {}) {
   const key = process.env.DEEPSEEK_API_KEY || "";
   if (!key || key.length < 8) return null;
 
@@ -65,6 +66,8 @@ export async function chat({ system, user, json = false, timeoutMs = 12000 } = {
     temperature: 0.4,
     max_tokens: Number(process.env.DEEPSEEK_MAX_TOKENS || 1024),
   };
+  if (process.env.DEEPSEEK_REASONING_EFFORT) body.reasoning_effort = process.env.DEEPSEEK_REASONING_EFFORT;
+  if (onDelta) body.stream = true;
   if (json) body.response_format = { type: "json_object" };
 
   const ac = new AbortController();
@@ -77,18 +80,41 @@ export async function chat({ system, user, json = false, timeoutMs = 12000 } = {
         Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify(body),
-      signal: ac.signal,
+      signal: signal ? AbortSignal.any([ac.signal, signal]) : ac.signal,
     });
     if (!res.ok) {
       const t = await res.text().catch(() => "");
       console.error(`[llm] HTTP ${res.status}: ${t.slice(0, 200)}`);
       return null;
     }
-    const data = await res.json();
-    const msg = data?.choices?.[0]?.message || {};
+    let msg;
+    if (onDelta) {
+      if (!res.body) return null;
+      let content = '', stopped = false;
+      for await (const event of readSSE(res.body)) {
+        if (event === '[DONE]') break;
+        const chunk = JSON.parse(event);
+        if (chunk.error) throw new Error('上游流式调用失败');
+        const choice = chunk.choices?.[0];
+        if (choice?.finish_reason) {
+          if (choice.finish_reason !== 'stop') return null;
+          stopped = true;
+        }
+        if (typeof choice?.delta?.content === 'string') {
+          content += choice.delta.content;
+          if (content.length > 50000) throw new Error('模型输出过长');
+          onDelta(content);
+        }
+      }
+      if (!stopped) return null;
+      msg = { content };
+    } else {
+      const data = await res.json();
+      msg = data?.choices?.[0]?.message || {};
+    }
     // deepseek-flash may fill reasoning_content first; final answer is content when present
     let text = typeof msg.content === "string" ? msg.content.trim() : "";
-    if (!text && typeof msg.reasoning_content === "string") {
+    if (!text && !requireFinal && typeof msg.reasoning_content === "string") {
       // last resort: try to pull a JSON object or last non-empty line from reasoning
       const rc = msg.reasoning_content;
       const jm = rc.match(/\{[\s\S]*?\}/g);

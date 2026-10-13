@@ -4,6 +4,9 @@
  * Port 9301. Rule-based proposals + deterministic arbitration (skeleton §4).
  */
 import http from "node:http";
+import { recoveryStatus, runRecovery } from "./recovery.mjs";
+import { runAssistant } from "./assistant.mjs";
+import { streamResponse } from "./recoveryTransport.mjs";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -254,6 +257,18 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
   try {
+    if (req.method === "POST" && ['/v1/recovery/stream', '/v1/assistant/stream'].includes(url.pathname)) {
+      const body = await readBody(req);
+      const runner = url.pathname === '/v1/assistant/stream' ? runAssistant : runRecovery;
+      return streamResponse(req, res, options => runner(body, undefined, undefined, options));
+    }
+    if (req.method === "GET" && url.pathname === "/v1/recovery/status") {
+      return json(res, 200, recoveryStatus());
+    }
+    if (req.method === "POST" && url.pathname === "/v1/recovery/talk") {
+      try { return json(res, 200, await runRecovery(await readBody(req))); }
+      catch (e) { return json(res, e.status || 400, { error: "RECOVERY_ERROR", message: e.message }); }
+    }
     if (req.method === "GET" && url.pathname === "/health") {
       return json(res, 200, { ok: true, service: "jarvis-council", version: "0.3.0", llm: llmStatus() });
     }

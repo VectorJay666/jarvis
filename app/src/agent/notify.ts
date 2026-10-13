@@ -23,3 +23,22 @@ export async function scheduleNudge(title: string, body: string, secondsFromNow 
     return false;
   }
 }
+/** A real receipt is an Expo notification identifier; no identifier means nothing was scheduled. */
+export async function scheduleRecoveryReminder(body: string, date: Date): Promise<string | null> {
+  if (Platform.OS === 'web' || !Number.isFinite(date.getTime()) || date.getTime() <= Date.now()) return null;
+  try {
+    const N = await import('expo-notifications');
+    N.setNotificationHandler({ handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }) });
+    const permission = await N.getPermissionsAsync();
+    if (!permission.granted && !(await N.requestPermissionsAsync()).granted) return null;
+    return await N.scheduleNotificationAsync({
+      content: { title: '睡眠与恢复', body, data: { skill: 'sleep-recovery' } },
+      trigger: { type: N.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(1, Math.ceil((date.getTime() - Date.now()) / 1000)) },
+    });
+  } catch { return null; }
+}
+export async function cancelRecoveryReminder(id: string): Promise<boolean> {
+  if (Platform.OS === 'web' || !id) return false;
+  try { const N = await import('expo-notifications'); await N.cancelScheduledNotificationAsync(id); return true; }
+  catch { return false; }
+}
