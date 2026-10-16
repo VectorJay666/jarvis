@@ -16,7 +16,7 @@ import { runTalk, getSession, cancelSession, replySession } from "./talk.mjs";
 import { loadEnv, llmStatus } from "./llm.mjs";
 import { loadSnapshot, saveSnapshot, clearSnapshot, mergeState } from "./health.mjs";
 import { pickNudge, NUDGE_ACTION } from "./nudge.mjs";
-import { rankActions, greet } from "../skills/rules/home.mjs";
+import { rankActions, greet, themeForPeriod } from "../skills/rules/home.mjs";
 const HOME_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "home_habit.json");
 const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
 function loadHome() {
@@ -33,7 +33,14 @@ function homePayload(now = new Date()) {
   let actions = rankActions(h, snap || {}, now);
   if (nudge?.action_id) actions = actions.map((a) => (a.id === nudge.action_id ? { ...a, why: null } : a));
   const greeting = greet(now, snap || {}, Boolean(nudge));
-  return { greet: greeting, nudge, actions, habit_day: h.day };
+  return { greet: greeting, theme: themeForPeriod(greeting.period), nudge, actions, habit_day: h.day };
+}
+function nowFromRequest(url) {
+  const raw = url?.searchParams?.get("hour");
+  const n = raw == null || raw === "" ? NaN : Number(raw);
+  const d = new Date();
+  if (Number.isInteger(n) && n >= 0 && n < 24) d.setHours(n, 0, 0, 0);
+  return d;
 }
 loadEnv();
 import { proposeLedger as proposeRecruitedLedger } from "../skills/rules/ledger.mjs";
@@ -303,7 +310,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { events: s.events.filter((e) => e.data.seq > after) });
     }
     if (req.method === "GET" && url.pathname === "/v1/nudge") {
-      return json(res, 200, { nudge: homePayload().nudge });
+      return json(res, 200, { nudge: homePayload(nowFromRequest(url)).nudge });
     }
     if (req.method === "POST" && url.pathname === "/v1/nudge/dismiss") {
       const b = await readBody(req);
@@ -314,10 +321,10 @@ const server = http.createServer(async (req, res) => {
         if (a) h.dismissed_today = [...new Set([...h.dismissed_today, a])];
         saveHome(h);
       }
-      return json(res, 200, { ok: true, ...homePayload() });
+      return json(res, 200, { ok: true, ...homePayload(nowFromRequest(url)) });
     }
     if (req.method === "GET" && url.pathname === "/v1/home") {
-      return json(res, 200, homePayload());
+      return json(res, 200, homePayload(nowFromRequest(url)));
     }
     if (req.method === "POST" && url.pathname === "/v1/home/tap") {
       const b = await readBody(req);
@@ -327,7 +334,7 @@ const server = http.createServer(async (req, res) => {
       h.taps[id] = (h.taps[id] || 0) + 1;
       h.hour_taps[id] ||= {}; h.hour_taps[id][hr] = (h.hour_taps[id][hr] || 0) + 1;
       saveHome(h);
-      return json(res, 200, { ok: true, ...homePayload() });
+      return json(res, 200, { ok: true, ...homePayload(nowFromRequest(url)) });
     }
     if (req.method === "GET" && url.pathname === "/v1/health/snapshot") {
       const snap = loadSnapshot();

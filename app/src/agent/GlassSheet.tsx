@@ -7,6 +7,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { ConversationGlassContext } from '../recovery/ConversationMotion';
 import { hap } from '../talk/haptics';
+import { AFTERNOON_HOME_THEME, type HomeTheme } from '../theme/homeTheme';
 import { useSettledHeight } from './useSettledHeight';
 
 const PEEK = 44;
@@ -21,10 +22,11 @@ type Props = {
   footer: (close: () => void, blurTarget: React.RefObject<View | null>) => React.ReactNode;
   footerInset: number;
   scrollRef?: React.RefObject<ScrollView | null>;
+  theme?: HomeTheme;
 };
 
 /** The shared progress is updated directly during a drag; only release uses a spring. */
-export function GlassSheet({ reduceMotion, active = true, onExpandedChange, renderBackground, children, footer, footerInset, scrollRef }: Props) {
+export function GlassSheet({ reduceMotion, active = true, onExpandedChange, renderBackground, children, footer, footerInset, scrollRef, theme = AFTERNOON_HOME_THEME }: Props) {
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const peek = PEEK + insets.bottom;
@@ -120,6 +122,7 @@ export function GlassSheet({ reduceMotion, active = true, onExpandedChange, rend
   }, [dragging, lastDragEnded, origin, prepareDrag, progress, settle, travel]);
   const reveal = useMemo(() => makePan(true), [makePan]);
   const pan = useMemo(() => makePan(false), [makePan]);
+  const dark = theme.mode !== 'light';
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: travel * (1 - progress.get()) }] }));
   const shadeStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, Math.min(1, progress.get())) * 0.12 }));
   const backgroundStyle = useAnimatedStyle(() => ({
@@ -136,20 +139,20 @@ export function GlassSheet({ reduceMotion, active = true, onExpandedChange, rend
       <Animated.View accessibilityElementsHidden={!expanded} importantForAccessibility={expanded ? 'auto' : 'no-hide-descendants'} pointerEvents={expanded ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, st.shade, shadeStyle]}>
         <Pressable style={st.fill} onPress={close} accessibilityRole="button" accessibilityLabel="收起详情" testID="home-sheet-backdrop" tabIndex={expanded ? 0 : -1} />
       </Animated.View>
-      <Animated.View style={[st.sheet, { height: sheetHeight, backgroundColor: expanded ? 'transparent' : '#FAFAFC' }, sheetStyle]} testID="home-sheet">
+      <Animated.View style={[st.sheet, { height: sheetHeight, backgroundColor: expanded ? 'transparent' : theme.background }, sheetStyle]} testID="home-sheet">
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {expanded && active ? <BlurView blurTarget={blurTarget} blurMethod="dimezisBlurViewSdk31Plus" intensity={70} tint="light" style={StyleSheet.absoluteFill} testID="home-sheet-glass" /> : null}
-          <View style={[StyleSheet.absoluteFill, st.tint]} />
+          {expanded && active ? <BlurView blurTarget={blurTarget} blurMethod="dimezisBlurViewSdk31Plus" intensity={70} tint={dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} testID="home-sheet-glass" /> : null}
+          <View style={[StyleSheet.absoluteFill, st.tint, dark ? { backgroundColor: theme.mode === 'dim' ? 'rgba(44,44,46,0.78)' : 'rgba(0,0,0,0.78)', borderColor: 'rgba(255,255,255,0.12)' } : null]} />
         </View>
         <GestureDetector gesture={pan}>
           <Animated.View testID="home-sheet-drag" onLayout={(event) => { const next = Math.round(event.nativeEvent.layout.height); setHeaderHeight(previous => Math.abs(previous - next) > 1 ? next : previous); }} style={[st.dragArea, Platform.OS === 'web' && ({ touchAction: 'none' } as never)]}>
             <Pressable onPress={toggle} testID="home-sheet-toggle" accessibilityRole="button" accessibilityLabel={expanded ? '收起详情' : '展开详情，也可以向上滑动'} accessibilityState={{ expanded }} style={[st.handleHit, { height: peek, paddingBottom: insets.bottom }]}>
-              <View style={st.handle} />
+              <View style={[st.handle, { backgroundColor: theme.muted }]} />
             </Pressable>
             <View style={st.titleRow} accessibilityElementsHidden={!expanded} importantForAccessibility={expanded ? 'auto' : 'no-hide-descendants'}>
-              <View><Text style={st.title}>为你准备</Text><Text style={st.subtitle}>把今天，过得轻一点。</Text></View>
-              <Pressable onPress={close} testID="home-sheet-close" accessibilityLabel="收起详情" accessibilityRole="button" tabIndex={expanded ? 0 : -1} style={st.close}>
-                <Ionicons name="chevron-down" size={20} color="#68686D" />
+              <View><Text style={[st.title, { color: theme.text }]}>为你准备</Text><Text style={[st.subtitle, { color: theme.muted }]}>把今天，过得轻一点。</Text></View>
+              <Pressable onPress={close} testID="home-sheet-close" accessibilityLabel="收起详情" accessibilityRole="button" tabIndex={expanded ? 0 : -1} style={[st.close, dark && { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+                <Ionicons name="chevron-down" size={20} color={theme.muted} />
               </Pressable>
             </View>
           </Animated.View>

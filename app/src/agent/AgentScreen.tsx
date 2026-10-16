@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -21,13 +22,14 @@ import { HealthFollowPanel } from '../talk/HealthFollow';
 import { useReduceMotion } from '../talk/Drops';
 import { hap } from '../talk/haptics';
 import { loadHealthSnapshot, MOCK_SNAPSHOT, postHealthSnapshot, type HealthSnapshot } from '../talk/healthSnapshot';
+import { AFTERNOON_HOME_THEME, inkOnAccent, themeHairline, type HomeTheme } from '../theme/homeTheme';
 import { Tap } from '../talk/press';
 import { answerFor, FOLLOW_LABEL, type ActionId, type Answer } from './answers';
 import { GlassActionButton } from './GlassActionButton';
 import { loadHabit, recordTap, SEED } from './habits';
-import { rankActions, type Habit, type HomeAction } from './home.mjs';
+import { rankActions, type Greet, type Habit, type HomeAction } from './home.mjs';
 import { DEFAULT_BASELINE, judge } from './nudge.mjs';
-import { dismissHome, getHome, NUDGE_TO_ACTION, tapHome, type Nudge } from './nudgeClient';
+import { dismissHome, getHome, NUDGE_TO_ACTION, tapHome, type Home, type Nudge } from './nudgeClient';
 import { HomeConversation } from './HomeConversation';
 import { createHomeDraft, HomeDraftComposer, HomeInputBar } from './HomeDraft';
 import { VoiceBubble } from './VoiceBubble';
@@ -87,6 +89,9 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
   const baseline = DEFAULT_BASELINE;
   const j = useMemo(() => judge(snap as Record<string, unknown>, baseline), [snap, baseline]);
   const [ranked, setRanked] = useState<HomeAction[]>(() => rankActions(SEED, MOCK_SNAPSHOT as Record<string, unknown>, new Date()));
+  const [greet, setGreet] = useState<Greet>({ primary: '下午好', secondary: null, period: 'afternoon' });
+  const [theme, setTheme] = useState<HomeTheme>(AFTERNOON_HOME_THEME);
+  const [homeSource, setHomeSource] = useState<'pending' | Home['source']>('pending');
 
   const typingPulse = useSharedValue(0);
   const changeText = useCallback((next: string) => {
@@ -108,7 +113,7 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
       await postHealthSnapshot(s);
       const home = await getHome(s, h, []);
       const nu = home.nudge;
-      setNudge(nu); setRanked(home.actions);
+      setNudge(nu); setRanked(home.actions); setGreet(home.greet); setTheme(home.theme); setHomeSource(home.source);
       // Suggestions stay inside the app; notifications require an explicit user request.
     })();
   }, []);
@@ -126,7 +131,7 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
     if (id === 'detail' || id === 'sleep') { setDetailOpen(true); return; }
     if (['train', 'dinner', 'sleep', 'walk', 'budget'].includes(id)) {
       const h2 = await recordTap(habit, id); setHabit(h2);
-      void tapHome(id, snap, h2, dismissed).then((hm) => { setRanked(hm.actions); });
+      void tapHome(id, snap, h2, dismissed).then((hm) => { setRanked(hm.actions); setGreet(hm.greet); setTheme(hm.theme); setHomeSource(hm.source); });
     }
     if (id === 'remind') { openRecovery('我想设置睡前提醒'); return; }
     show(answerFor(id, snap, baseline, j));
@@ -136,7 +141,7 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
     if (!nudge) return;
     const d = [...dismissed, nudge.id]; setDismissed(d);
     const hm = await dismissHome(nudge.id, snap, habit, dismissed);
-    setNudge(hm.nudge); setRanked(hm.actions);
+    setNudge(hm.nudge); setRanked(hm.actions); setGreet(hm.greet); setTheme(hm.theme); setHomeSource(hm.source);
   };
 
   const openRecovery = (initial = '') => { setRecoverySeed(undefined); setRecoveryFromNotification(Boolean(initial)); setRecoveryInitial(initial); setDetailOpen(false); setRecoveryOpen(true); };
@@ -186,9 +191,13 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
   const illustrationSeason = scene.scene === 'spring' || scene.scene === 'summer' || scene.scene === 'autumn' || scene.scene === 'winter' ? scene.scene : 'autumn';
   const orbActive = visible && !sheetExpanded && !backgroundOpen && !detailOpen && !recoveryOpen && !voiceOpen;
 
+  const hairline = themeHairline(theme);
+  const onAccent = inkOnAccent(theme);
   return (
-    <KeyboardAvoidingView style={st.screen} enabled={visible} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top} testID="agent-screen">
+    <KeyboardAvoidingView style={[st.screen, { backgroundColor: theme.background }]} enabled={visible} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top} testID="agent-screen" accessibilityLabel={`home-${homeSource}-${greet.period}-${theme.mode}-${theme.background}`}>
+      {visible ? <StatusBar style={theme.mode === 'light' ? 'dark' : 'light'} /> : null}
       <GlassSheet
+        theme={theme}
         reduceMotion={rm}
         active={visible}
         onExpandedChange={setSheetExpanded}
@@ -196,63 +205,63 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
         footerInset={tabBarInset(insets.bottom)}
         footer={(closeSheet, blurTarget) => (
           <>
-            {homeMessages.length ? <HomeDraftComposer draft={draft} busy={homeBusy} onChange={changeText} onSend={() => { void submit(); }} onStop={() => homeRequest.current?.abort()} choices={homeChoices} onChoose={(value) => { void submit(undefined, false, value); }} blurTarget={blurTarget} /> : null}
-            <TabBar indicator={tabIndicator} blurTarget={blurTarget} value={activeTab} onChange={(tab) => { closeSheet(); setVoiceOpen(false); homeRequest.current?.abort(); onNavigate?.(tab); }} bottom={insets.bottom} glass />
+            {homeMessages.length ? <HomeDraftComposer theme={theme} draft={draft} busy={homeBusy} onChange={changeText} onSend={() => { void submit(); }} onStop={() => homeRequest.current?.abort()} choices={homeChoices} onChoose={(value) => { void submit(undefined, false, value); }} blurTarget={blurTarget} /> : null}
+            <TabBar chrome={theme} indicator={tabIndicator} blurTarget={blurTarget} value={activeTab} onChange={(tab) => { closeSheet(); setVoiceOpen(false); homeRequest.current?.abort(); onNavigate?.(tab); }} bottom={insets.bottom} glass />
           </>
         )}
         renderBackground={(reveal, openSheet) => (
         <View style={st.screen} onLayout={measureHome}>
           <BlurTargetView ref={homeBackdrop} style={StyleSheet.absoluteFill}><SeasonBackground scene={scene.scene} /></BlurTargetView>
           <View style={st.header}>
-            <Text style={[st.brand, { color: scene.secondary }]}>JARVIS</Text>
+            <Text style={[st.brand, { color: theme.muted }]}>JARVIS</Text>
             <View style={st.headerActions}>
-            <Tap testID="background-preset" accessibilityRole="button" accessibilityLabel="选择季节或时光背景" onPress={() => setBackgroundOpen(true)} style={st.backgroundHit}><Text style={[st.backgroundLabel, { color: scene.secondary }]}>{scene.label}</Text><Ionicons name="chevron-down" size={12} color={scene.secondary} /></Tap>
-            <Tap onPress={() => setDetailOpen(true)} testID="agent-health" accessibilityRole="button" accessibilityLabel="查看健康详情" style={st.healthHit}><Ionicons name="heart-outline" size={20} color={scene.secondary} /></Tap>
+            <Tap testID="background-preset" accessibilityRole="button" accessibilityLabel="选择季节或时光背景" onPress={() => setBackgroundOpen(true)} style={st.backgroundHit}><Text style={[st.backgroundLabel, { color: theme.muted }]}>{scene.label}</Text><Ionicons name="chevron-down" size={12} color={theme.muted} /></Tap>
+            <Tap onPress={() => setDetailOpen(true)} testID="agent-health" accessibilityRole="button" accessibilityLabel="查看健康详情" style={st.healthHit}><Ionicons name="heart-outline" size={20} color={theme.muted} /></Tap>
             </View>
           </View>
           <GestureDetector gesture={reveal}>
             <Animated.View style={[st.hero, Platform.OS === 'web' && ({ touchAction: 'pan-x' } as never)]} testID="home-hero">
               <View style={[st.greetWrap, { paddingTop: typingOnShortScreen ? 0 : compact ? 12 : 30 }]} testID="agent-greet">
                 <HomeArrival active={visible} reduceMotion={rm} style={st.greetingRow}>
-                  <Text style={[st.greetPrimary, { color: scene.foreground, fontFamily: fontLoaded ? 'JarvisGreeting' : undefined, fontSize: greetingSize, lineHeight: greetingSize * 1.2 }]} numberOfLines={1} adjustsFontSizeToFit testID="greet-primary">{{ morning: '早上好', afternoon: '下午好', evening: '晚上好', late: '夜深了' }[scene.period]}</Text>
+                  <Text style={[st.greetPrimary, { color: theme.text, fontFamily: fontLoaded ? 'JarvisGreeting' : undefined, fontSize: greetingSize, lineHeight: greetingSize * 1.2 }]} numberOfLines={1} adjustsFontSizeToFit testID="greet-primary">{greet.primary}</Text>
                   {!typingOnShortScreen ? <SeasonIllustration season={illustrationSeason} size={compact ? 76 : 90} /> : null}
                 </HomeArrival>
-                <HomeArrival active={visible} reduceMotion={rm} delay={160}><Text style={[st.openingLabel, { color: scene.secondary }]} testID="home-opening-topic">{homeMessages.length ? '接着聊聊' : opening.label}</Text></HomeArrival>
-                <HomeArrival active={visible} reduceMotion={rm} delay={320}><Text style={[st.quote, { color: scene.foreground }, typingOnShortScreen && { fontSize: 12, lineHeight: 18, paddingTop: 6 }]} numberOfLines={typingOnShortScreen ? 2 : 3} testID="home-opening-observation">{homeMessages.length ? homeMessages.at(-1)?.content : opening.observation}</Text></HomeArrival>
-                {!typingOnShortScreen ? <HomeArrival active={visible} reduceMotion={rm} delay={480}><Text style={[st.openingQuestion, { color: scene.secondary }]}>{opening.question}</Text></HomeArrival> : null}
+                <HomeArrival active={visible} reduceMotion={rm} delay={160}><Text style={[st.openingLabel, { color: theme.muted }]} testID="home-opening-topic">{homeMessages.length ? '接着聊聊' : opening.label}</Text></HomeArrival>
+                <HomeArrival active={visible} reduceMotion={rm} delay={320}><Text style={[st.quote, { color: theme.text }, typingOnShortScreen && { fontSize: 12, lineHeight: 18, paddingTop: 6 }]} numberOfLines={typingOnShortScreen ? 2 : 3} testID="home-opening-observation">{homeMessages.length ? homeMessages.at(-1)?.content : opening.observation}</Text></HomeArrival>
+                {!typingOnShortScreen ? <HomeArrival active={visible} reduceMotion={rm} delay={480}><Text style={[st.openingQuestion, { color: theme.muted }]}>{opening.question}</Text></HomeArrival> : null}
               </View>
-              <HomeArrival active={visible} reduceMotion={rm} delay={640} style={st.openingChoices}><FloatingChoices choices={homeBusy ? [] : homeChoices} disabled={homeBusy} onChoose={(value) => { void submit(openSheet, false, value); }} testIDPrefix="home-opening-choice" blurTarget={homeBackdrop} /></HomeArrival>
+              <HomeArrival active={visible} reduceMotion={rm} delay={640} style={st.openingChoices}><FloatingChoices choices={homeBusy ? [] : homeChoices} disabled={homeBusy} onChoose={(value) => { void submit(openSheet, false, value); }} testIDPrefix="home-opening-choice" blurTarget={homeBackdrop} textColor={theme.text} iconColor={theme.muted} tone={theme.mode === 'light' ? 'light' : 'dark'} /></HomeArrival>
               <View style={[st.orbStage, { minHeight: typingOnShortScreen ? 0 : orbSize + 34, flex: typingOnShortScreen ? 0 : 1 }]}>
-                {!typingOnShortScreen ? <Tap testID="agent-orb" accessibilityRole="button" accessibilityLabel="点击水球，开始语音录音" disabled={homeBusy} onPress={() => { Keyboard.dismiss(); setVoiceOpen(true); }} style={{ alignItems: 'center', padding: 8 }}><VoiceBubble size={orbSize} active={orbActive} reduceMotion={rm} pulse={typingPulse} /><Text style={[st.orbLabel, { color: scene.secondary }]}>点我，说说今天</Text></Tap> : null}
+                {!typingOnShortScreen ? <Tap testID="agent-orb" accessibilityRole="button" accessibilityLabel="点击水球，开始语音录音" disabled={homeBusy} onPress={() => { Keyboard.dismiss(); setVoiceOpen(true); }} style={{ alignItems: 'center', padding: 8 }}><VoiceBubble size={orbSize} active={orbActive} reduceMotion={rm} pulse={typingPulse} /><Text style={[st.orbLabel, { color: theme.muted }]}>点我，说说今天</Text></Tap> : null}
               </View>
 
             </Animated.View>
           </GestureDetector>
-          <HomeInputBar draft={draft} busy={homeBusy} onChange={changeText} onFocus={focusInput} onBlur={blurInput} onSend={() => { void submit(openSheet); }} choices={[]} onChoose={(value) => { void submit(openSheet, false, value); }} blurTarget={homeBackdrop} />
-          {typingOnShortScreen ? <View style={{ height: Math.max(insets.bottom, 8) + 44 }} /> : <Text pointerEvents="none" style={[st.swipeHint, { color: scene.secondary, paddingBottom: Math.max(insets.bottom, 8) + 44 }]} testID="home-swipe-hint">上滑，看看今天的安排</Text>}
+          <HomeInputBar theme={theme} draft={draft} busy={homeBusy} onChange={changeText} onFocus={focusInput} onBlur={blurInput} onSend={() => { void submit(openSheet); }} choices={[]} onChoose={(value) => { void submit(openSheet, false, value); }} blurTarget={homeBackdrop} />
+          {typingOnShortScreen ? <View style={{ height: Math.max(insets.bottom, 8) + 44 }} /> : <Text pointerEvents="none" style={[st.swipeHint, { color: theme.muted, paddingBottom: Math.max(insets.bottom, 8) + 44 }]} testID="home-swipe-hint">上滑，看看今天的安排</Text>}
         </View>
       )}>
-        {homeMessages.length ? <HomeConversation messages={homeMessages} result={homeResult} busy={homeBusy} pending={homePending} error={homeError} onRetry={() => { void submit(undefined, true); }} onReset={() => { setHomeMessages([]); setHomeResult(null); setHomeError(''); }} /> : null}
+        {homeMessages.length ? <HomeConversation theme={theme} messages={homeMessages} result={homeResult} busy={homeBusy} pending={homePending} error={homeError} onRetry={() => { void submit(undefined, true); }} onReset={() => { setHomeMessages([]); setHomeResult(null); setHomeError(''); }} /> : null}
         {/* 2. Nudge ≤1 — 0 height when none */}
         {!homeMessages.length && nudge ? (
-          <View style={st.banner} testID="nudge-row">
+          <View style={[st.banner, { backgroundColor: theme.surface, borderColor: hairline }]} testID="nudge-row">
             <View style={st.nudgeMain}>
               {bigFact ? (
-                <Text style={st.nudgeNum} testID="nudge-num">
+                <Text style={[st.nudgeNum, { color: theme.text }]} testID="nudge-num">
                   {String(bigFact[1])}
-                  <Text style={st.nudgeUnit}> {UNIT[bigFact[0]] ?? ''}</Text>
+                  <Text style={[st.nudgeUnit, { color: theme.muted }]}> {UNIT[bigFact[0]] ?? ''}</Text>
                 </Text>
               ) : null}
-              <Text style={[st.nudgeText, bigFact ? { flex: 1 } : null]} numberOfLines={1} testID="nudge-text">
+              <Text style={[st.nudgeText, { color: theme.text }, bigFact ? { flex: 1 } : null]} numberOfLines={1} testID="nudge-text">
                 {clipNudge(nudge.text)}
               </Text>
             </View>
             <View style={st.nudgeBtns}>
-              <Tap testID="nudge-look" feedback="light" onPress={onLook} style={st.nbtnDark}>
-                <Text style={st.nbtnDarkTxt}>看看</Text>
+              <Tap testID="nudge-look" feedback="light" onPress={onLook} style={[st.nbtnDark, { backgroundColor: theme.accent }]}>
+                <Text style={[st.nbtnDarkTxt, { color: onAccent }]}>看看</Text>
               </Tap>
-              <Tap testID="nudge-dismiss" feedback={false} onPress={onDismiss} style={st.nbtn}>
-                <Text style={st.nbtnTxt}>不用</Text>
+              <Tap testID="nudge-dismiss" feedback={false} onPress={onDismiss} style={[st.nbtn, { backgroundColor: theme.background }]}>
+                <Text style={[st.nbtnTxt, { color: theme.text }]}>不用</Text>
               </Tap>
             </View>
           </View>
@@ -264,6 +273,7 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
             <GlassActionButton
               key={a.id}
               action={a}
+              theme={theme}
               reduceMotion={rm}
               testID={`act-${a.id}`}
               onPress={() => { void tap(a.id); }}
@@ -277,6 +287,7 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
             a={answer}
             rm={rm}
             disclaimer={j.disclaimer || DISCLAIMER}
+            theme={theme}
             onFollow={tap}
             onRecovery={() => openRecovery()}
           />
@@ -302,11 +313,12 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
 const UNIT: Record<string, string> = { sleep_hours: '小时', steps: '步', meals_today: '餐', budget_left: '元' };
 
 function AnswerCard({
-  a, rm, disclaimer, onFollow, onRecovery,
+  a, rm, disclaimer, theme, onFollow, onRecovery,
 }: {
   a: Answer;
   rm: boolean;
   disclaimer: string;
+  theme: HomeTheme;
   onFollow: (id: ActionId) => void;
   onRecovery: () => void;
 }) {
@@ -319,28 +331,28 @@ function AnswerCard({
   }, [rm, y, op]);
   const style = useAnimatedStyle(() => ({ opacity: op.value, transform: [{ translateY: y.value }] }));
   return (
-    <Animated.View testID="answer-card" style={[st.card, style]}>
-      <Text style={st.cardEyebrow}>{a.title}</Text>
-      {a.id === 'sleep' ? <Tap onPress={onRecovery} testID="answer-open-recovery" style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}><Ionicons name="chatbubble-outline" size={15} color="#5C5C5C" /><Text style={{ fontSize: 13, color: '#5C5C5C' }}>进入睡眠模式，聊聊安排</Text></Tap> : null}
+    <Animated.View testID="answer-card" style={[st.card, { backgroundColor: theme.surface, borderColor: themeHairline(theme) }, style]}>
+      <Text style={[st.cardEyebrow, { color: theme.muted }]}>{a.title}</Text>
+      {a.id === 'sleep' ? <Tap onPress={onRecovery} testID="answer-open-recovery" style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}><Ionicons name="chatbubble-outline" size={15} color={theme.muted} /><Text style={{ fontSize: 13, color: theme.muted }}>进入睡眠模式，聊聊安排</Text></Tap> : null}
       {a.big ? (
-        <Text style={st.big}>
+        <Text style={[st.big, { color: theme.text }]}>
           {a.big.value}
-          <Text style={st.bigUnit}> {a.big.unit}</Text>
+          <Text style={[st.bigUnit, { color: theme.muted }]}> {a.big.unit}</Text>
         </Text>
       ) : null}
-      <Text style={st.concl}>{a.conclusion}</Text>
-      {a.why ? <Text style={st.cardWhy}>{a.why}</Text> : null}
-      {a.action ? <Text style={st.cardAction}>{a.action}</Text> : null}
+      <Text style={[st.concl, { color: theme.text }]}>{a.conclusion}</Text>
+      {a.why ? <Text style={[st.cardWhy, { color: theme.muted }]}>{a.why}</Text> : null}
+      {a.action ? <Text style={[st.cardAction, { color: theme.text }]}>{a.action}</Text> : null}
       {a.followups.length ? (
         <View style={st.chips}>
           {a.followups.slice(0, 2).map((id) => (
-            <Tap key={id} testID={`follow-${id}`} feedback="selection" onPress={() => onFollow(id)} style={st.chip}>
-              <Text style={st.chipTxt}>{FOLLOW_LABEL[id] ?? ({ dinner: '冰箱做晚饭' } as Record<string, string>)[id] ?? id}</Text>
+            <Tap key={id} testID={`follow-${id}`} feedback="selection" onPress={() => onFollow(id)} style={[st.chip, { backgroundColor: theme.background }]}>
+              <Text style={[st.chipTxt, { color: theme.text }]}>{FOLLOW_LABEL[id] ?? ({ dinner: '冰箱做晚饭' } as Record<string, string>)[id] ?? id}</Text>
             </Tap>
           ))}
         </View>
       ) : null}
-      <Text style={st.cardFoot} testID="card-disclaimer">{disclaimer}</Text>
+      <Text style={[st.cardFoot, { color: theme.muted }]} testID="card-disclaimer">{disclaimer}</Text>
     </Animated.View>
   );
 }

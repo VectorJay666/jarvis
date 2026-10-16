@@ -16,6 +16,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { hap } from '../talk/haptics';
+import { AFTERNOON_HOME_THEME, themeHairline, type HomeTheme } from '../theme/homeTheme';
 import type { HomeAction } from './home.mjs';
 
 /** damping 22 @ stiffness 180 ≈ dampingRatio 0.82–0.88 */
@@ -37,9 +38,10 @@ type Props = {
   reduceMotion: boolean;
   onPress: () => void;
   testID?: string;
+  theme?: HomeTheme;
 };
 
-export function GlassActionButton({ action, reduceMotion, onPress, testID }: Props) {
+export function GlassActionButton({ action, reduceMotion, onPress, testID, theme = AFTERNOON_HOME_THEME }: Props) {
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -89,16 +91,18 @@ export function GlassActionButton({ action, reduceMotion, onPress, testID }: Pro
       });
   }, [reduceMotion, doTap, doLight, pressed, scale, tx, ty, w, h, didTap]);
 
+  const resting = theme.background;
+  const pressedFill = theme.surface;
   const anim = useAnimatedStyle(() => ({
     transform: [
       { translateX: reduceMotion ? 0 : tx.value },
       { translateY: reduceMotion ? 0 : ty.value },
       { scale: reduceMotion ? 1 : scale.value },
     ],
-    backgroundColor: pressed.value ? '#F5F5F5' : '#FFFFFF',
+    backgroundColor: pressed.value ? pressedFill : resting,
     zIndex: pressed.value ? 4 : 0,
     ...(Platform.OS === 'web' ? ({ touchAction: 'none' } as object) : null),
-  }));
+  }), [pressedFill, reduceMotion, resting]);
 
   const glassOp = useAnimatedStyle(() => ({
     opacity: reduceMotion ? 0 : pressed.value,
@@ -109,16 +113,16 @@ export function GlassActionButton({ action, reduceMotion, onPress, testID }: Pro
       <Animated.View
         testID={testID}
         onLayout={(e) => { w.value = e.nativeEvent.layout.width; h.value = e.nativeEvent.layout.height; }}
-        style={[st.row, anim]}
+        style={[st.row, { borderColor: themeHairline(theme) }, anim]}
       >
         {!reduceMotion ? (
           <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, st.glassClip, glassOp]}>
-            <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
-            <View style={st.glassTint} />
+            <BlurView intensity={28} tint={theme.mode === 'light' ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+            <View style={[st.glassTint, theme.mode !== 'light' && { backgroundColor: 'rgba(0,0,0,0.28)' }]} />
           </Animated.View>
         ) : null}
-        <Ionicons name={`${action.icon}-outline` as never} size={20} color="#000000" />
-        <Text style={st.label} numberOfLines={1}>{action.label}</Text>
+        <Ionicons name={`${action.icon}-outline` as never} size={20} color={theme.text} />
+        <Text style={[st.label, { color: theme.text }]} numberOfLines={1}>{action.label}</Text>
       </Animated.View>
     </GestureDetector>
   );

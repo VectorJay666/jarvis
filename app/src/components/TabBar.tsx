@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated';
 import { useReduceMotion } from '../talk/Drops';
 import { hap } from '../talk/haptics';
+import type { HomeTheme } from '../theme/homeTheme';
 
 export type TabKey = 'talk' | 'today' | 'team' | 'habits' | 'me';
 const TABS: { key: TabKey; label: string; icon: React.ComponentProps<typeof Ionicons>['name']; outline: React.ComponentProps<typeof Ionicons>['name'] }[] = [
@@ -39,36 +40,42 @@ type Props = {
   blurTarget: React.RefObject<View | null>;
   glass?: boolean;
   active?: boolean;
+  /** Home passes `/v1/home` theme. Other tabs keep the light capsule. */
+  chrome?: HomeTheme;
 };
 
-export function TabBar({ value, onChange, bottom, indicator, blurTarget, glass = false, active = true }: Props) {
+export function TabBar({ value, onChange, bottom, indicator, blurTarget, glass = false, active = true, chrome }: Props) {
   const [width, setWidth] = useState(0);
   const highlightStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: indicator.get() * width / TABS.length }],
   }), [width]);
 
+  const dark = chrome != null && chrome.mode !== 'light';
+  const selectedColor = chrome?.accent ?? '#252830';
+  const idleColor = chrome?.muted ?? '#7C818B';
   return (
     <View pointerEvents="box-none" style={[st.dock, glass && st.sheetDock, { paddingBottom: Math.max(bottom, GAP) }]} testID="glass-tab-dock">
       <View style={[st.shadow, glass && st.sheetShadow]}>
-        <View style={st.capsule} testID="glass-tabbar" accessibilityRole="tablist" accessibilityLabel="主导航">
+        <View style={[st.capsule, dark && { backgroundColor: 'rgba(28,28,30,0.55)', borderColor: 'rgba(255,255,255,0.14)' }]} testID="glass-tabbar" accessibilityRole="tablist" accessibilityLabel="主导航">
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            {active ? <BlurView blurTarget={blurTarget} blurMethod="dimezisBlurViewSdk31Plus" intensity={60} tint="light" style={StyleSheet.absoluteFill} testID="glass-tab-blur" /> : null}
-            <LinearGradient colors={['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.04)', 'rgba(219,222,230,0.12)']} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
+            {active ? <BlurView blurTarget={blurTarget} blurMethod="dimezisBlurViewSdk31Plus" intensity={60} tint={dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} testID="glass-tab-blur" /> : null}
+            <LinearGradient colors={dark ? ['rgba(255,255,255,0.08)', 'rgba(0,0,0,0.04)', 'rgba(0,0,0,0.28)'] : ['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.04)', 'rgba(219,222,230,0.12)']} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
           </View>
           <View style={st.track} onLayout={(event) => { if (event.nativeEvent.layout.width > 0) setWidth(event.nativeEvent.layout.width); }}>
             {width > 0 ? (
-              <Animated.View pointerEvents="none" style={[st.highlight, { width: width / TABS.length - 4 }, highlightStyle]} testID="glass-tab-highlight">
-                <LinearGradient colors={['rgba(255,255,255,0.96)', 'rgba(229,232,238,0.72)']} style={StyleSheet.absoluteFill} />
+              <Animated.View pointerEvents="none" style={[st.highlight, { width: width / TABS.length - 4 }, dark && { backgroundColor: 'rgba(255,255,255,0.14)', borderColor: 'rgba(255,255,255,0.2)' }, highlightStyle]} testID="glass-tab-highlight">
+                <LinearGradient colors={dark ? ['rgba(255,255,255,0.22)', 'rgba(255,255,255,0.08)'] : ['rgba(255,255,255,0.96)', 'rgba(229,232,238,0.72)']} style={StyleSheet.absoluteFill} />
               </Animated.View>
             ) : null}
             {TABS.map((tab) => {
               const selected = tab.key === value;
+              const color = selected ? selectedColor : idleColor;
               return (
                 <Pressable key={tab.key} testID={`tab-${tab.key}`} accessibilityRole="tab" accessibilityLabel={tab.label} accessibilityState={{ selected }} aria-selected={selected}
                   onPress={() => { if (!selected) { void hap.selection(); onChange(tab.key); } }}
                   style={({ pressed }) => [st.tab, pressed && st.pressed]}>
-                  <Ionicons name={selected ? tab.icon : tab.outline} size={22} color={selected ? '#252830' : '#7C818B'} />
-                  <Text numberOfLines={1} style={[st.label, selected && st.selectedLabel]}>{tab.label}</Text>
+                  <Ionicons name={selected ? tab.icon : tab.outline} size={22} color={color} />
+                  <Text numberOfLines={1} style={[st.label, { color }, selected && st.selectedLabel, selected && chrome ? { color: selectedColor } : null]}>{tab.label}</Text>
                 </Pressable>
               );
             })}

@@ -9,13 +9,14 @@ export type GlassTarget = React.RefObject<View | null>;
 export const ConversationGlassContext = createContext<GlassTarget | undefined>(undefined);
 
 /** One glass treatment for bubbles, cards and controls; motion only runs on changes. */
-export function FlowSurface({ children, style, delay = 0, testID, blurTarget, animate = true, blurIntensity = 42 }: { children: React.ReactNode; style?: React.ComponentProps<typeof View>['style']; delay?: number; testID?: string; blurTarget?: GlassTarget; animate?: boolean; blurIntensity?: number }) {
+export function FlowSurface({ children, style, delay = 0, testID, blurTarget, animate = true, blurIntensity = 42, tone = 'light' }: { children: React.ReactNode; style?: React.ComponentProps<typeof View>['style']; delay?: number; testID?: string; blurTarget?: GlassTarget; animate?: boolean; blurIntensity?: number; tone?: 'light' | 'dark' }) {
   const reduced = useReduceMotion();
   const inheritedTarget = useContext(ConversationGlassContext);
   const target = blurTarget || inheritedTarget;
-  return <Animated.View testID={testID} style={[s.surface, style]} entering={reduced || !animate ? undefined : FadeInDown.duration(300).springify().damping(24).stiffness(220).mass(0.8).delay(delay)} layout={reduced ? undefined : LinearTransition.springify().damping(28).stiffness(260)}>
-    <BlurView pointerEvents="none" blurTarget={target} blurMethod={target ? 'dimezisBlurViewSdk31Plus' : 'none'} intensity={blurIntensity} tint="light" style={StyleSheet.absoluteFill} />
-    <LinearGradient pointerEvents="none" colors={['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.08)', 'rgba(231,239,232,0.16)']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
+  const dark = tone === 'dark';
+  return <Animated.View testID={testID} style={[s.surface, dark && s.darkSurface, style]} entering={reduced || !animate ? undefined : FadeInDown.duration(300).springify().damping(24).stiffness(220).mass(0.8).delay(delay)} layout={reduced ? undefined : LinearTransition.springify().damping(28).stiffness(260)}>
+    <BlurView pointerEvents="none" blurTarget={target} blurMethod={target ? 'dimezisBlurViewSdk31Plus' : 'none'} intensity={blurIntensity} tint={dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+    <LinearGradient pointerEvents="none" colors={dark ? ['rgba(255,255,255,0.08)', 'rgba(0,0,0,0.28)', 'rgba(0,0,0,0.48)'] : ['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.08)', 'rgba(231,239,232,0.16)']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
     {children}
   </Animated.View>;
 }
@@ -53,4 +54,4 @@ export function ConversationOrb({ active, input = '' }: { active: boolean; input
   const halo = useAnimatedStyle(() => ({ opacity: active ? 0.12 + (breath.get() - 1) * 0.8 : pulse.get() * 0.2, transform: [{ scale: 1 + pulse.get() * 0.2 }] }));
   return <View style={s.orbSpace} testID={active ? 'conversation-orb-active' : 'conversation-orb'} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Animated.View style={[s.halo, halo]} /><Animated.View style={[s.orb, orb]}><LinearGradient colors={['#C3C6E5', '#667092', '#222735']} start={{ x: 0.15, y: 0 }} end={{ x: 0.85, y: 1 }} style={StyleSheet.absoluteFill} /><View style={s.glint} /></Animated.View></View>;
 }
-const s = StyleSheet.create({ surface: { borderRadius: 24, overflow: 'hidden', backgroundColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.24)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.72)' }, orbSpace: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }, orb: { width: 27, height: 27, borderRadius: 20, overflow: 'hidden', borderWidth: 0.5, borderColor: '#FFF8' }, halo: { position: 'absolute', width: 39, height: 39, borderRadius: 24, backgroundColor: '#858BBF' }, glint: { position: 'absolute', top: 4, left: 5, width: 11, height: 7, borderRadius: 8, backgroundColor: '#FFFFFF44', transform: [{ rotate: '-28deg' }] } });
+const s = StyleSheet.create({ surface: { borderRadius: 24, overflow: 'hidden', backgroundColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.24)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.72)' }, darkSurface: { backgroundColor: 'rgba(28,28,30,0.72)', borderColor: 'rgba(255,255,255,0.16)' }, orbSpace: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }, orb: { width: 27, height: 27, borderRadius: 20, overflow: 'hidden', borderWidth: 0.5, borderColor: '#FFF8' }, halo: { position: 'absolute', width: 39, height: 39, borderRadius: 24, backgroundColor: '#858BBF' }, glint: { position: 'absolute', top: 4, left: 5, width: 11, height: 7, borderRadius: 8, backgroundColor: '#FFFFFF44', transform: [{ rotate: '-28deg' }] } });
