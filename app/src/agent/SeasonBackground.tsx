@@ -2,12 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
-import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { artworkScrim, type HomeTheme } from '../theme/homeTheme';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
+import type { HomeThemeMode } from '../theme/homeTheme';
 import type { GreetPeriod } from './home.mjs';
 import { demoHour } from './nudgeClient';
 
-const SCRIM_MS = 400;
+const FADE_MS = 400;
+/** Evening and late plates. Artwork by Crea&Cons. */
+const DUSK = require('../../assets/bg/jarvis-bg-dusk.png');
+const LATE = require('../../assets/bg/jarvis-bg-late.png');
 
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 type DayScene = 'morning' | 'afternoon' | 'evening';
@@ -75,23 +78,38 @@ export function useSeasonScene() {
   };
 }
 
-/** Local artwork stays static, with no runtime blur or per-frame background work. */
-export const SeasonBackground = memo(function SeasonBackground({ scene }: { scene: Season | DayScene }) {
-  return <View style={StyleSheet.absoluteFill} pointerEvents="none" accessible={false} testID={`season-background-${scene}`}>
-    <Image source={SCENES[scene].source} resizeMode="cover" fadeDuration={0} style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} />
-  </View>;
-});
+function fadePlate(value: SharedValue<number>, to: number, reduceMotion: boolean) {
+  cancelAnimation(value);
+  value.set(reduceMotion ? to : withTiming(to, { duration: FADE_MS, easing: Easing.out(Easing.cubic) }));
+}
 
-/** Theme wash over the photo. Light mode stays clear; dim/dark fade in over 400ms. */
-export const SeasonScrim = memo(function SeasonScrim({ theme, reduceMotion }: { theme: HomeTheme; reduceMotion: boolean }) {
-  const scrim = artworkScrim(theme);
-  const opacity = useSharedValue(scrim.opacity);
+/**
+ * Light keeps the seasonal photo. Dim crossfades to the dusk plate, dark to the late plate.
+ * Missing theme is the afternoon light preset, so it stays on the seasonal photo.
+ */
+export const ThemeBackdrop = memo(function ThemeBackdrop({ scene, mode, reduceMotion }: { scene: Season | DayScene; mode: HomeThemeMode; reduceMotion: boolean }) {
+  const seasonOpacity = useSharedValue(mode === 'light' ? 1 : 0);
+  const duskOpacity = useSharedValue(mode === 'dim' ? 1 : 0);
+  const lateOpacity = useSharedValue(mode === 'dark' ? 1 : 0);
   useEffect(() => {
-    cancelAnimation(opacity);
-    opacity.set(reduceMotion ? scrim.opacity : withTiming(scrim.opacity, { duration: SCRIM_MS, easing: Easing.out(Easing.cubic) }));
-  }, [opacity, reduceMotion, scrim.opacity]);
-  const fade = useAnimatedStyle(() => ({ opacity: opacity.get() }));
-  return <Animated.View pointerEvents="none" accessible={false} testID="season-scrim" accessibilityLabel={`season-scrim-${theme.mode}-${scrim.opacity}`} style={[StyleSheet.absoluteFill, { backgroundColor: scrim.color }, fade]} />;
+    fadePlate(seasonOpacity, mode === 'light' ? 1 : 0, reduceMotion);
+    fadePlate(duskOpacity, mode === 'dim' ? 1 : 0, reduceMotion);
+    fadePlate(lateOpacity, mode === 'dark' ? 1 : 0, reduceMotion);
+  }, [duskOpacity, lateOpacity, mode, reduceMotion, seasonOpacity]);
+  const seasonStyle = useAnimatedStyle(() => ({ opacity: seasonOpacity.get() }));
+  const duskStyle = useAnimatedStyle(() => ({ opacity: duskOpacity.get() }));
+  const lateStyle = useAnimatedStyle(() => ({ opacity: lateOpacity.get() }));
+  return <View style={StyleSheet.absoluteFill} pointerEvents="none" accessible={false} testID="home-backdrop" accessibilityLabel={`home-backdrop-${mode}`}>
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, seasonStyle]} testID={`season-background-${scene}`}>
+      <Image source={SCENES[scene].source} resizeMode="cover" fadeDuration={0} style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} />
+    </Animated.View>
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, duskStyle]} testID="theme-bg-dusk">
+      <Image source={DUSK} resizeMode="cover" fadeDuration={0} style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} accessibilityLabel="暮色背景，Crea&Cons" />
+    </Animated.View>
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, lateStyle]} testID="theme-bg-late">
+      <Image source={LATE} resizeMode="cover" fadeDuration={0} style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} accessibilityLabel="夜深背景，Crea&Cons" />
+    </Animated.View>
+  </View>;
 });
 
 export function SeasonPicker({ visible, current, reduceMotion, onClose, onSelect }: { visible: boolean; current: SeasonPreset; reduceMotion: boolean; onClose: () => void; onSelect: (preset: SeasonPreset) => void }) {

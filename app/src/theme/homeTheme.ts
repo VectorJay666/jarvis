@@ -41,15 +41,3 @@ export function inkOnAccent(theme: HomeTheme): string {
 export function themeHairline(theme: HomeTheme): string {
   return theme.mode === 'light' ? '#E6E6E6' : 'rgba(255,255,255,0.16)';
 }
-
-/**
- * Dim wash over seasonal artwork so bright photos don't fight dark chrome.
- * Driven by theme.mode. Light (morning/afternoon, and the missing-theme preset) has no scrim.
- * Dim is about rgba(0,0,0,0.45). Dark is about 0.7 toward #000.
- * Black, not the dim surface color: a 45% wash of #2C2C2E left light type under 3.5:1 on the bright photo.
- */
-export function artworkScrim(theme: Pick<HomeTheme, 'mode'>): { color: string; opacity: number } {
-  if (theme.mode === 'dim') return { color: '#000000', opacity: 0.45 };
-  if (theme.mode === 'dark') return { color: '#000000', opacity: 0.7 };
-  return { color: '#000000', opacity: 0 };
-}

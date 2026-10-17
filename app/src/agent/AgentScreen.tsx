@@ -37,7 +37,7 @@ import { VoiceRecorder } from './VoiceRecorder';
 import { HomeArrival } from './HomeArrival';
 import { SeasonIllustration } from './SeasonIllustration';
 import { FloatingChoices } from '../recovery/FloatingChoices';
-import { SeasonBackground, SeasonPicker, SeasonScrim, useSeasonScene } from './SeasonBackground';
+import { SeasonPicker, ThemeBackdrop, useSeasonScene } from './SeasonBackground';
 import { useSettledHeight } from './useSettledHeight';
 import { askAssistant, type AssistantReply } from '../recovery/client';
 import type { Message } from '../recovery/types';
@@ -213,7 +213,7 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
         )}
         renderBackground={(reveal, openSheet) => (
         <View style={st.screen} onLayout={measureHome}>
-          <BlurTargetView ref={homeBackdrop} style={StyleSheet.absoluteFill}><SeasonBackground scene={scene.scene} /><SeasonScrim theme={theme} reduceMotion={rm} /></BlurTargetView>
+          <BlurTargetView ref={homeBackdrop} style={StyleSheet.absoluteFill}><ThemeBackdrop scene={scene.scene} mode={theme.mode} reduceMotion={rm} /></BlurTargetView>
           <View style={st.header}>
             <Text style={[st.brand, { color: onPhoto }]}>JARVIS</Text>
             <View style={st.headerActions}>
