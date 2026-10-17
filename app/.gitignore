@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# npm ci requires this lockfile; do not ignore it
+!package-lock.json
+
 # Expo
 .expo/
 dist/
