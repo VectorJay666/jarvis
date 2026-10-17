@@ -2,8 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { artworkScrim, type HomeTheme } from '../theme/homeTheme';
 import type { GreetPeriod } from './home.mjs';
 import { demoHour } from './nudgeClient';
+
+const SCRIM_MS = 400;
 
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 type DayScene = 'morning' | 'afternoon' | 'evening';
@@ -76,6 +80,18 @@ export const SeasonBackground = memo(function SeasonBackground({ scene }: { scen
   return <View style={StyleSheet.absoluteFill} pointerEvents="none" accessible={false} testID={`season-background-${scene}`}>
     <Image source={SCENES[scene].source} resizeMode="cover" fadeDuration={0} style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} />
   </View>;
+});
+
+/** Theme wash over the photo. Light mode stays clear; dim/dark fade in over 400ms. */
+export const SeasonScrim = memo(function SeasonScrim({ theme, reduceMotion }: { theme: HomeTheme; reduceMotion: boolean }) {
+  const scrim = artworkScrim(theme);
+  const opacity = useSharedValue(scrim.opacity);
+  useEffect(() => {
+    cancelAnimation(opacity);
+    opacity.set(reduceMotion ? scrim.opacity : withTiming(scrim.opacity, { duration: SCRIM_MS, easing: Easing.out(Easing.cubic) }));
+  }, [opacity, reduceMotion, scrim.opacity]);
+  const fade = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  return <Animated.View pointerEvents="none" accessible={false} testID="season-scrim" accessibilityLabel={`season-scrim-${theme.mode}-${scrim.opacity}`} style={[StyleSheet.absoluteFill, { backgroundColor: scrim.color }, fade]} />;
 });
 
 export function SeasonPicker({ visible, current, reduceMotion, onClose, onSelect }: { visible: boolean; current: SeasonPreset; reduceMotion: boolean; onClose: () => void; onSelect: (preset: SeasonPreset) => void }) {

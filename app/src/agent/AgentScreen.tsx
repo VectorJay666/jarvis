@@ -37,7 +37,7 @@ import { VoiceRecorder } from './VoiceRecorder';
 import { HomeArrival } from './HomeArrival';
 import { SeasonIllustration } from './SeasonIllustration';
 import { FloatingChoices } from '../recovery/FloatingChoices';
-import { SeasonBackground, SeasonPicker, useSeasonScene } from './SeasonBackground';
+import { SeasonBackground, SeasonPicker, SeasonScrim, useSeasonScene } from './SeasonBackground';
 import { useSettledHeight } from './useSettledHeight';
 import { askAssistant, type AssistantReply } from '../recovery/client';
 import type { Message } from '../recovery/types';
@@ -193,6 +193,8 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
 
   const hairline = themeHairline(theme);
   const onAccent = inkOnAccent(theme);
+  // Mid-gray muted tokens sit on solid chrome. On the photo, dim/dark use the primary ink so type stays readable over the scrim.
+  const onPhoto = theme.mode === 'light' ? theme.muted : theme.text;
   return (
     <KeyboardAvoidingView style={[st.screen, { backgroundColor: theme.background }]} enabled={visible} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top} testID="agent-screen" accessibilityLabel={`home-${homeSource}-${greet.period}-${theme.mode}-${theme.background}`}>
       {visible ? <StatusBar style={theme.mode === 'light' ? 'dark' : 'light'} /> : null}
@@ -211,12 +213,12 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
         )}
         renderBackground={(reveal, openSheet) => (
         <View style={st.screen} onLayout={measureHome}>
-          <BlurTargetView ref={homeBackdrop} style={StyleSheet.absoluteFill}><SeasonBackground scene={scene.scene} /></BlurTargetView>
+          <BlurTargetView ref={homeBackdrop} style={StyleSheet.absoluteFill}><SeasonBackground scene={scene.scene} /><SeasonScrim theme={theme} reduceMotion={rm} /></BlurTargetView>
           <View style={st.header}>
-            <Text style={[st.brand, { color: theme.muted }]}>JARVIS</Text>
+            <Text style={[st.brand, { color: onPhoto }]}>JARVIS</Text>
             <View style={st.headerActions}>
-            <Tap testID="background-preset" accessibilityRole="button" accessibilityLabel="选择季节或时光背景" onPress={() => setBackgroundOpen(true)} style={st.backgroundHit}><Text style={[st.backgroundLabel, { color: theme.muted }]}>{scene.label}</Text><Ionicons name="chevron-down" size={12} color={theme.muted} /></Tap>
-            <Tap onPress={() => setDetailOpen(true)} testID="agent-health" accessibilityRole="button" accessibilityLabel="查看健康详情" style={st.healthHit}><Ionicons name="heart-outline" size={20} color={theme.muted} /></Tap>
+            <Tap testID="background-preset" accessibilityRole="button" accessibilityLabel="选择季节或时光背景" onPress={() => setBackgroundOpen(true)} style={st.backgroundHit}><Text style={[st.backgroundLabel, { color: onPhoto }]}>{scene.label}</Text><Ionicons name="chevron-down" size={12} color={onPhoto} /></Tap>
+            <Tap onPress={() => setDetailOpen(true)} testID="agent-health" accessibilityRole="button" accessibilityLabel="查看健康详情" style={st.healthHit}><Ionicons name="heart-outline" size={20} color={onPhoto} /></Tap>
             </View>
           </View>
           <GestureDetector gesture={reveal}>
@@ -226,19 +228,19 @@ export const AgentScreen = memo(function AgentScreen({ onNavigate, activeTab, ta
                   <Text style={[st.greetPrimary, { color: theme.text, fontFamily: fontLoaded ? 'JarvisGreeting' : undefined, fontSize: greetingSize, lineHeight: greetingSize * 1.2 }]} numberOfLines={1} adjustsFontSizeToFit testID="greet-primary">{greet.primary}</Text>
                   {!typingOnShortScreen ? <SeasonIllustration season={illustrationSeason} size={compact ? 76 : 90} /> : null}
                 </HomeArrival>
-                <HomeArrival active={visible} reduceMotion={rm} delay={160}><Text style={[st.openingLabel, { color: theme.muted }]} testID="home-opening-topic">{homeMessages.length ? '接着聊聊' : opening.label}</Text></HomeArrival>
+                <HomeArrival active={visible} reduceMotion={rm} delay={160}><Text style={[st.openingLabel, { color: onPhoto }]} testID="home-opening-topic">{homeMessages.length ? '接着聊聊' : opening.label}</Text></HomeArrival>
                 <HomeArrival active={visible} reduceMotion={rm} delay={320}><Text style={[st.quote, { color: theme.text }, typingOnShortScreen && { fontSize: 12, lineHeight: 18, paddingTop: 6 }]} numberOfLines={typingOnShortScreen ? 2 : 3} testID="home-opening-observation">{homeMessages.length ? homeMessages.at(-1)?.content : opening.observation}</Text></HomeArrival>
-                {!typingOnShortScreen ? <HomeArrival active={visible} reduceMotion={rm} delay={480}><Text style={[st.openingQuestion, { color: theme.muted }]}>{opening.question}</Text></HomeArrival> : null}
+                {!typingOnShortScreen ? <HomeArrival active={visible} reduceMotion={rm} delay={480}><Text style={[st.openingQuestion, { color: onPhoto }]}>{opening.question}</Text></HomeArrival> : null}
               </View>
               <HomeArrival active={visible} reduceMotion={rm} delay={640} style={st.openingChoices}><FloatingChoices choices={homeBusy ? [] : homeChoices} disabled={homeBusy} onChoose={(value) => { void submit(openSheet, false, value); }} testIDPrefix="home-opening-choice" blurTarget={homeBackdrop} textColor={theme.text} iconColor={theme.muted} tone={theme.mode === 'light' ? 'light' : 'dark'} /></HomeArrival>
               <View style={[st.orbStage, { minHeight: typingOnShortScreen ? 0 : orbSize + 34, flex: typingOnShortScreen ? 0 : 1 }]}>
-                {!typingOnShortScreen ? <Tap testID="agent-orb" accessibilityRole="button" accessibilityLabel="点击水球，开始语音录音" disabled={homeBusy} onPress={() => { Keyboard.dismiss(); setVoiceOpen(true); }} style={{ alignItems: 'center', padding: 8 }}><VoiceBubble size={orbSize} active={orbActive} reduceMotion={rm} pulse={typingPulse} /><Text style={[st.orbLabel, { color: theme.muted }]}>点我，说说今天</Text></Tap> : null}
+                {!typingOnShortScreen ? <Tap testID="agent-orb" accessibilityRole="button" accessibilityLabel="点击水球，开始语音录音" disabled={homeBusy} onPress={() => { Keyboard.dismiss(); setVoiceOpen(true); }} style={{ alignItems: 'center', padding: 8 }}><VoiceBubble size={orbSize} active={orbActive} reduceMotion={rm} pulse={typingPulse} /><Text style={[st.orbLabel, { color: onPhoto }]}>点我，说说今天</Text></Tap> : null}
               </View>
 
             </Animated.View>
           </GestureDetector>
           <HomeInputBar theme={theme} draft={draft} busy={homeBusy} onChange={changeText} onFocus={focusInput} onBlur={blurInput} onSend={() => { void submit(openSheet); }} choices={[]} onChoose={(value) => { void submit(openSheet, false, value); }} blurTarget={homeBackdrop} />
-          {typingOnShortScreen ? <View style={{ height: Math.max(insets.bottom, 8) + 44 }} /> : <Text pointerEvents="none" style={[st.swipeHint, { color: theme.muted, paddingBottom: Math.max(insets.bottom, 8) + 44 }]} testID="home-swipe-hint">上滑，看看今天的安排</Text>}
+          {typingOnShortScreen ? <View style={{ height: Math.max(insets.bottom, 8) + 44 }} /> : <Text pointerEvents="none" style={[st.swipeHint, { color: onPhoto, paddingBottom: Math.max(insets.bottom, 8) + 44 }]} testID="home-swipe-hint">上滑，看看今天的安排</Text>}
         </View>
       )}>
         {homeMessages.length ? <HomeConversation theme={theme} messages={homeMessages} result={homeResult} busy={homeBusy} pending={homePending} error={homeError} onRetry={() => { void submit(undefined, true); }} onReset={() => { setHomeMessages([]); setHomeResult(null); setHomeError(''); }} /> : null}
