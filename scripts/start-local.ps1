@@ -37,7 +37,11 @@ if ($expoPort) {
     }
 }
 $expoCli = Join-Path $appRoot 'node_modules/expo/bin/cli'
-if (-not (Test-Path -LiteralPath $expoCli)) { throw '请先在 app 文件夹运行 npm ci 安装依赖。' }
+if (-not (Test-Path -LiteralPath $expoCli)) {
+    $lockfile = Join-Path $appRoot 'package-lock.json'
+    $install = if (Test-Path -LiteralPath $lockfile) { 'npm ci' } else { 'npm install' }
+    throw "请先在 app 文件夹运行 $install 安装依赖。"
+}
 $previousApi = $env:EXPO_PUBLIC_API_BASE
 $previousHost = $env:REACT_NATIVE_PACKAGER_HOSTNAME
 try {
