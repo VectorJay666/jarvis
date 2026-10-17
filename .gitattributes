@@ -1,0 +1,6 @@
+# PowerShell 5.1 reads a script with no BOM as the system ANSI code page
+# (GBK on Chinese Windows). Keep the UTF-8 BOM in the blob.
+# `text eol=crlf` only normalizes newlines; it does not re-encode, so the BOM stays.
+# Do not set working-tree-encoding (including UTF-16): that re-encodes and drops the BOM.
+# `-text` would also keep the raw bytes, but it skips newline normalization.
+*.ps1 text eol=crlf
