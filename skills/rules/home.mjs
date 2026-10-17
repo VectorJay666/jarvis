@@ -106,3 +106,21 @@ export function greet(now = new Date(), snap = {}, hasNudge = false) {
 
   return { primary, secondary, period };
 }
+
+/**
+ * B&W system chrome for the open page. Buckets match greet():
+ * morning/afternoon → light, evening → dim, late → dark.
+ * Unknown period returns the afternoon light preset (never throws).
+ * themeForPeriod(period) → { period, mode, background, surface, text, muted, accent }
+ */
+const HOME_THEMES = {
+  morning:   { period: "morning",   mode: "light", background: "#FFFFFF", surface: "#F5F5F5", text: "#000000", muted: "#8A8A8A", accent: "#000000" },
+  afternoon: { period: "afternoon", mode: "light", background: "#FFFFFF", surface: "#F5F5F5", text: "#000000", muted: "#8A8A8A", accent: "#000000" },
+  evening:   { period: "evening",   mode: "dim",   background: "#2C2C2E", surface: "#3A3A3C", text: "#F5F5F7", muted: "#A1A1A6", accent: "#FFFFFF" },
+  late:      { period: "late",      mode: "dark",  background: "#000000", surface: "#1C1C1E", text: "#FFFFFF", muted: "#8E8E93", accent: "#FFFFFF" },
+};
+
+export function themeForPeriod(period) {
+  const row = HOME_THEMES[period] || HOME_THEMES.afternoon;
+  return { ...row };
+}

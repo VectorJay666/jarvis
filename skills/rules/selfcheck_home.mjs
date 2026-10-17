@@ -46,3 +46,22 @@ assert.equal(g4.secondary, null);
 const g5 = greet(new Date("2026-10-11T14:00:00"), {}, false);
 assert.equal(g5.primary, "下午好");
 console.log("greet selfcheck OK", g1, g2, g3);
+
+import { themeForPeriod } from "./home.mjs";
+assert.equal(themeForPeriod("morning").mode, "light");
+assert.equal(themeForPeriod("afternoon").mode, "light");
+assert.equal(themeForPeriod("evening").mode, "dim");
+assert.equal(themeForPeriod("late").mode, "dark");
+assert.equal(themeForPeriod("morning").period, "morning");
+assert.equal(themeForPeriod("afternoon").period, "afternoon");
+assert.deepEqual(
+  [themeForPeriod("morning").background, themeForPeriod("afternoon").background],
+  ["#FFFFFF", "#FFFFFF"],
+);
+assert.notEqual(themeForPeriod("evening").background, themeForPeriod("afternoon").background);
+assert.notEqual(themeForPeriod("late").background, themeForPeriod("evening").background);
+const fallback = themeForPeriod("nope");
+assert.equal(fallback.period, "afternoon");
+assert.equal(fallback.mode, "light");
+assert.equal(fallback.background, "#FFFFFF");
+console.log("theme selfcheck OK", themeForPeriod("late"));

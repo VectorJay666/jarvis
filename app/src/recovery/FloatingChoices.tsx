@@ -4,16 +4,16 @@ import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-n
 import { Tap } from '../talk/press';
 import { FlowSurface, type GlassTarget } from './ConversationMotion';
 
-type Props = { choices: string[]; disabled?: boolean; onChoose: (value: string) => void; testIDPrefix: string; blurTarget?: GlassTarget };
+type Props = { choices: string[]; disabled?: boolean; onChoose: (value: string) => void; testIDPrefix: string; blurTarget?: GlassTarget; textColor?: string; iconColor?: string; tone?: 'light' | 'dark' };
 
 /** The composer owns this stack, so choices follow the same keyboard and sheet movement. */
-export function FloatingChoices({ choices, disabled, onChoose, testIDPrefix, blurTarget }: Props) {
+export function FloatingChoices({ choices, disabled, onChoose, testIDPrefix, blurTarget, textColor, iconColor, tone = 'light' }: Props) {
   const { height } = useWindowDimensions();
   if (!choices.length) return null;
   return <ScrollView style={[s.scroll, { maxHeight: Math.min(188, Math.max(100, height * 0.28)) }]} contentContainerStyle={s.stack} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} testID={`${testIDPrefix}-stack`}>
-    {choices.slice(0, 3).map((choice, index) => <FlowSurface key={choice} delay={index * 45} blurTarget={blurTarget} style={s.surface}>
+    {choices.slice(0, 3).map((choice, index) => <FlowSurface key={choice} delay={index * 45} blurTarget={blurTarget} style={s.surface} tone={tone}>
       <Tap testID={`${testIDPrefix}-${index}`} accessibilityRole="button" accessibilityLabel={choice} disabled={disabled} onPress={() => onChoose(choice)} pressOpacity={0.88} style={[s.choice, disabled && s.disabled]}>
-        <View style={s.dot} /><Text style={s.text}>{choice}</Text><Ionicons name="arrow-up-outline" size={15} color="#68716D" />
+        <View style={s.dot} /><Text style={[s.text, textColor ? { color: textColor } : null]}>{choice}</Text><Ionicons name="arrow-up-outline" size={15} color={iconColor ?? '#68716D'} />
       </Tap>
     </FlowSurface>)}
   </ScrollView>;

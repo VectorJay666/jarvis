@@ -27,4 +27,4 @@ export { IDLE_QUOTES, pickIdleQuote, MEETING_LINE } from "./idle_quotes.mjs";
 export { AVATAR_IP_FORBIDDEN, avatarBanned, buildAvatarPrompt } from "./avatar_guard.mjs";
 export { assertFacts } from "./assert_facts.mjs";
 export { TAP_SUGGESTIONS, pickSuggestion } from "./suggestions.mjs";
-export { ACTIONS, rankActions, nudgeLine, NUDGE_ACTIONS, greet } from "./home.mjs";
+export { ACTIONS, rankActions, nudgeLine, NUDGE_ACTIONS, greet, themeForPeriod } from "./home.mjs";
